@@ -9,8 +9,8 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   initializing: boolean;
-  signIn: (username: string, password: string) => Promise<void>;
-  signUp: (username: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -59,8 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (username: string, password: string) => {
-    const email = `${username}@miaoda.com`;
+  const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -68,8 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (username: string, password: string) => {
-    const email = `${username}@miaoda.com`;
+  const signUp = async (email: string, username: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -93,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('Error creating profile during signup:', err);
         // Don't throw - user account is created, just profile failed
-        // They can retry after email confirmation
       }
     }
   };

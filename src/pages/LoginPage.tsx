@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Lock, User, Eye, EyeOff, HardDrive, Shield, Cloud, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -22,20 +22,20 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim() || !password) {
+    if (!email.trim() || !password) {
       toast({
         title: 'Validation Error',
-        description: 'Please enter both username and password',
+        description: 'Please enter both email and password',
         variant: 'destructive',
       });
       return;
     }
 
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!usernameRegex.test(username)) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       toast({
-        title: 'Invalid Username',
-        description: 'Username can only contain letters, numbers, and underscores',
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address',
         variant: 'destructive',
       });
       return;
@@ -43,15 +43,14 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await signIn(username, password);
+      await signIn(email.toLowerCase(), password);
       
-      // Store remember me preference
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
-        localStorage.setItem('lastUsername', username);
+        localStorage.setItem('lastEmail', email);
       } else {
         localStorage.removeItem('rememberMe');
-        localStorage.removeItem('lastUsername');
+        localStorage.removeItem('lastEmail');
       }
 
       toast({
@@ -70,15 +69,14 @@ export default function LoginPage() {
     }
   };
 
-  // Load remembered username on mount
-  useState(() => {
+  useEffect(() => {
     const remembered = localStorage.getItem('rememberMe');
-    const lastUser = localStorage.getItem('lastUsername');
-    if (remembered === 'true' && lastUser) {
-      setUsername(lastUser);
+    const lastEmail = localStorage.getItem('lastEmail');
+    if (remembered === 'true' && lastEmail) {
+      setEmail(lastEmail);
       setRememberMe(true);
     }
-  });
+  }, []);
 
   return (
     <div className="min-h-screen flex">
@@ -177,22 +175,22 @@ export default function LoginPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Username Field */}
+                {/* Email Field */}
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-sm font-medium">
-                    Username
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email
                   </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="Enter your username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="pl-10 h-11"
                       disabled={loading}
-                      autoComplete="username"
+                      autoComplete="email"
                     />
                   </div>
                 </div>

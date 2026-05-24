@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Lock, User, Eye, EyeOff, HardDrive, Shield, Cloud, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterPage() {
+  const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,10 +25,20 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim() || !password || !confirmPassword) {
+    if (!email.trim() || !username.trim() || !password || !confirmPassword) {
       toast({
         title: 'Validation Error',
         description: 'Please fill in all fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address',
         variant: 'destructive',
       });
       return;
@@ -81,7 +92,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await signUp(username, password);
+      await signUp(email.toLowerCase(), username, password);
       toast({
         title: 'Account Created!',
         description: 'Welcome to EpicBox. You can now sign in.',
@@ -212,6 +223,26 @@ export default function RegisterPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10 h-11"
+                      disabled={loading}
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
                 {/* Username Field */}
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-sm font-medium">
