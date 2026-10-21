@@ -55,16 +55,18 @@ CREATE TABLE IF NOT EXISTS share_access_logs (
 ALTER TABLE share_access_logs ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Admins can view all access logs
+DROP POLICY IF EXISTS "Admins can view all access logs" ON share_access_logs;
 CREATE POLICY "Admins can view all access logs" ON share_access_logs
   FOR SELECT TO authenticated USING (is_admin(auth.uid()));
 
 -- Policy: Share owners can view their access logs
+DROP POLICY IF EXISTS "Share owners can view access logs" ON share_access_logs;
 CREATE POLICY "Share owners can view access logs" ON share_access_logs
   FOR SELECT TO authenticated USING (
     EXISTS (
       SELECT 1 FROM shared_links sl
       WHERE sl.id = share_access_logs.share_id
-      AND sl.user_id = auth.uid()
+      AND sl.owner_id = auth.uid()
     )
   );
 
