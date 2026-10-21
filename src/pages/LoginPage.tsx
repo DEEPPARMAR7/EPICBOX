@@ -59,9 +59,15 @@ export default function LoginPage() {
       });
       navigate('/');
     } catch (error) {
+      const description =
+        error instanceof Error && error.message === 'Invalid login credentials'
+          ? 'No account with this email and password was found in the new Supabase project. Create a new account first, or check your password.'
+          : error instanceof Error
+            ? error.message
+            : 'Invalid credentials';
       toast({
         title: 'Login Failed',
-        description: error instanceof Error ? error.message : 'Invalid credentials',
+        description,
         variant: 'destructive',
       });
     } finally {
