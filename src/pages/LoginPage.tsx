@@ -21,8 +21,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (!email.trim() || !password) {
+    if (!normalizedEmail || !password) {
       toast({
         title: 'Validation Error',
         description: 'Please enter both email and password',
@@ -32,7 +33,7 @@ export default function LoginPage() {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       toast({
         title: 'Invalid Email',
         description: 'Please enter a valid email address',
@@ -43,11 +44,11 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await signIn(email.toLowerCase(), password);
+      await signIn(normalizedEmail, password);
       
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
-        localStorage.setItem('lastEmail', email);
+        localStorage.setItem('lastEmail', normalizedEmail);
       } else {
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('lastEmail');
@@ -246,7 +247,7 @@ export default function LoginPage() {
                       htmlFor="remember"
                       className="text-sm font-normal cursor-pointer"
                     >
-                      Remember me
+                      Remember email
                     </Label>
                   </div>
                   <Link to="/forgot-password">

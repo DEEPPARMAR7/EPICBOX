@@ -29,34 +29,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(currentProfile);
     } catch (error) {
       console.error('Error refreshing profile:', error);
+      setProfile(null);
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        refreshProfile();
+    let mounted = true;
+
+    const initializeSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!mounted) return;
+
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          void refreshProfile();
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error('Error initializing auth session:', error);
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setInitializing(false);
+        }
       }
-      setLoading(false);
-      
-      setTimeout(() => {
-        setInitializing(false);
-      }, 1500);
-    });
+    };
+
+    void initializeSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        refreshProfile();
+        window.setTimeout(() => {
+          if (mounted) void refreshProfile();
+        }, 0);
       } else {
         setProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -68,31 +92,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, username: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          username: username.toLowerCase(),
+        },
+      },
     });
     if (error) throw error;
-    
-    // Create profile immediately after signup
-    if (data.user) {
-      try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            username: username.toLowerCase(),
-            role: 'user',
-          });
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw new Error(`Failed to create profile: ${profileError.message}`);
-        }
-      } catch (err) {
-        console.error('Error creating profile during signup:', err);
-        // Don't throw - user account is created, just profile failed
-      }
-    }
   };
 
   const signOut = async () => {
