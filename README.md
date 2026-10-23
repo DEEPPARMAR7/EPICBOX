@@ -1,9 +1,9 @@
 # EpicBox
 
-EpicBox is a secure cloud file-storage application built with React,
-TypeScript, Vite, Tailwind CSS, and Supabase. It provides authenticated file
-management, folders, favorites, recent files, recycle-bin workflows, sharing,
-and protected storage operations.
+EpicBox is a cloud file-storage application built with React, TypeScript, Vite,
+Supabase, and Amazon S3. It provides authenticated file management, folders,
+favorites, recent files, recycle-bin workflows, sharing, and private object
+storage through short-lived, server-generated upload and download URLs.
 
 ## Features
 
@@ -14,7 +14,8 @@ and protected storage operations.
 - Favorites, recent files, and recycle bin
 - Password-protected and expiring share links
 - QR codes and share-access statistics
-- Private Supabase Storage with client-side AES-GCM encryption
+- Private Amazon S3 storage with client-side AES-GCM encryption
+- Supabase Edge Function authorization and short-lived S3 presigned URLs
 - Responsive light and dark themes
 
 ## Stack
@@ -22,7 +23,8 @@ and protected storage operations.
 - React 18, TypeScript, and Vite
 - React Router with hash-based navigation
 - Tailwind CSS and Radix UI
-- Supabase Auth, PostgreSQL, Row Level Security, and Storage
+- Supabase Auth, PostgreSQL, and Row Level Security
+- Amazon S3 and Supabase Edge Functions
 - Vercel deployment
 - npm 10 and Node.js 20 or newer
 
@@ -44,7 +46,7 @@ and protected storage operations.
    ```env
    VITE_SUPABASE_URL=https://your-project-ref.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-   VITE_STORAGE_PROVIDER=supabase
+   VITE_STORAGE_PROVIDER=s3
    VITE_ENCRYPTION_KEY=your-existing-encryption-key
    ```
 
@@ -79,7 +81,7 @@ and protected storage operations.
 | `VITE_SUPABASE_URL` | Yes | URL of the active Supabase project |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable key |
 | `VITE_SUPABASE_ANON_KEY` | Legacy | Older anon-key name still supported |
-| `VITE_STORAGE_PROVIDER` | Yes | Use `supabase` for the supported setup |
+| `VITE_STORAGE_PROVIDER` | Yes | Use `s3` for private S3 storage; `supabase` remains available |
 | `VITE_ENCRYPTION_KEY` | For compatibility | AES key used for encrypted files |
 
 `VITE_*` values are embedded in the frontend bundle. The encryption key is
@@ -94,16 +96,45 @@ changing encryption behavior.
 The active project must contain all four migrations listed above. New users are
 created in the active Supabase project and their profile is created by a
 database trigger; the browser must not insert profile rows during signup.
-Users, file metadata, and Storage objects are not
-automatically transferred when changing Supabase projects.
+Users and file metadata are not automatically transferred when changing
+Supabase projects.
 
 For a new project:
 
-1. Run all three migrations in Supabase SQL Editor.
-2. Confirm the private storage bucket exists.
+1. Run all four migrations in Supabase SQL Editor.
+2. Confirm the migrations complete successfully. The Supabase storage bucket
+   is only used when `VITE_STORAGE_PROVIDER=supabase`.
 3. Configure Authentication settings and redirect URLs for local and Vercel
    origins.
 4. Register the account again in the new project.
+
+## AWS S3 storage setup
+
+S3 is the configured provider in `.env.example`. AWS credentials are used only
+by the `s3-storage` Supabase Edge Function; never add them to a `VITE_*`
+variable or the frontend environment.
+
+1. Create a private S3 bucket in the AWS region you will configure. Block all
+   public access.
+2. Create a dedicated IAM identity limited to `s3:PutObject`, `s3:GetObject`,
+   and `s3:DeleteObject` on that bucket's objects. Do not grant bucket listing
+   or public-access permissions.
+3. Configure the bucket's CORS policy to allow the EpicBox web origins and
+   `PUT`, `GET`, and `DELETE` methods, with the `Content-Type` request header.
+4. Set these Supabase Edge Function secrets: `AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, and `S3_BUCKET`. Supabase supplies
+   the project URL and keys to Edge Functions.
+   Set them with `supabase secrets set AWS_ACCESS_KEY_ID=your-access-key AWS_SECRET_ACCESS_KEY=your-secret-key AWS_REGION=your-region S3_BUCKET=your-bucket-name`.
+5. Deploy the function with `supabase functions deploy s3-storage`. The
+   function verifies Supabase users for uploads, private downloads, and
+   deletes; public share downloads are checked against the share token,
+   expiration, and optional password. S3 URLs expire after five minutes.
+6. Set `VITE_STORAGE_PROVIDER=s3` in local and Vercel environments and
+   redeploy the frontend.
+
+Files are encrypted in the browser before upload. Existing files stored in
+Supabase Storage are not copied to S3 when changing providers; migrate those
+objects and their metadata before switching a populated deployment.
 
 ## Vercel deployment
 
@@ -169,7 +200,8 @@ vercel.json         Vercel build and SPA rewrite configuration
 
 - Never commit `.env`, service-role keys, database passwords, or access tokens.
 - Supabase Row Level Security must remain enabled on application tables.
-- Keep the Storage bucket private.
+- Keep the S3 bucket private and AWS credentials in Supabase Edge Function
+  secrets, not in browser configuration.
 - Use the same encryption key when accessing existing encrypted files.
 - Review and rotate exposed credentials immediately if they are published
   outside the intended deployment configuration.

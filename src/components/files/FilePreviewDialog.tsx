@@ -1,15 +1,16 @@
-import type { File } from '@/types';
-import { storageApi } from '@/db/api';
-import { Button } from '@/components/ui/button';
-import { formatFileSize, isImageFile, isVideoFile, downloadBlob } from '@/lib/fileUtils';
 import { Download, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { storageApi } from '@/db/api';
+import { useToast } from '@/hooks/use-toast';
+import { downloadBlob, formatFileSize, isImageFile, isVideoFile } from '@/lib/fileUtils';
+import type { File } from '@/types';
 
 interface FilePreviewDialogProps {
   file: File;
@@ -19,6 +20,36 @@ interface FilePreviewDialogProps {
 
 export default function FilePreviewDialog({ file, open, onClose }: FilePreviewDialogProps) {
   const { toast } = useToast();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState('');
+
+  useEffect(() => {
+    if (!open || !(isImageFile(file.type) || isVideoFile(file.type) || file.type === 'application/pdf')) {
+      setPreviewUrl(null);
+      setPreviewError('');
+      return;
+    }
+
+    let active = true;
+    let objectUrl: string | null = null;
+    setPreviewUrl(null);
+    setPreviewError('');
+
+    storageApi.downloadFile(file.storage_path, file.type)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setPreviewError('Preview could not be loaded. You can still try downloading the file.');
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.id, file.storage_path, file.type, open]);
 
   const handleDownload = async () => {
     try {
@@ -38,11 +69,16 @@ export default function FilePreviewDialog({ file, open, onClose }: FilePreviewDi
   };
 
   const renderPreview = () => {
+    if (previewError) {
+      return <p className="text-sm text-destructive">{previewError}</p>;
+    }
+
     if (isImageFile(file.type)) {
+      if (!previewUrl) return <p className="text-sm text-muted-foreground">Loading preview…</p>;
       return (
         <div className="flex items-center justify-center bg-muted rounded-lg p-4">
           <img
-            src={storageApi.getPublicUrl(file.storage_path)}
+            src={previewUrl}
             alt={file.name}
             className="max-w-full max-h-[60vh] object-contain"
           />
@@ -51,10 +87,11 @@ export default function FilePreviewDialog({ file, open, onClose }: FilePreviewDi
     }
 
     if (isVideoFile(file.type)) {
+      if (!previewUrl) return <p className="text-sm text-muted-foreground">Loading preview…</p>;
       return (
         <div className="flex items-center justify-center bg-muted rounded-lg p-4">
           <video
-            src={storageApi.getPublicUrl(file.storage_path)}
+            src={previewUrl}
             controls
             className="max-w-full max-h-[60vh]"
           >
@@ -65,10 +102,11 @@ export default function FilePreviewDialog({ file, open, onClose }: FilePreviewDi
     }
 
     if (file.type === 'application/pdf') {
+      if (!previewUrl) return <p className="text-sm text-muted-foreground">Loading preview…</p>;
       return (
         <div className="w-full h-[60vh] bg-muted rounded-lg">
           <iframe
-            src={storageApi.getPublicUrl(file.storage_path)}
+            src={previewUrl}
             className="w-full h-full rounded-lg"
             title={file.name}
           />

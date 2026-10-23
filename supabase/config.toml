@@ -1,2 +1,5 @@
 [auth.email]
 enable_confirmations = false
+
+[functions.s3-storage]
+verify_jwt = false
